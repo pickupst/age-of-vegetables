@@ -15,6 +15,7 @@ var config = {
     }
 };
 var camSpeed = 10;
+var marker;
 
 var scenes = { preload: preload, create: create , update: update}
 var game = new Phaser.Game(800, 600, Phaser.AUTO, 'age-of-vegetables', scenes);
@@ -23,7 +24,13 @@ var game = new Phaser.Game(800, 600, Phaser.AUTO, 'age-of-vegetables', scenes);
 function preload ()
 {
   // In order to have the camera move, we need to increase the size of our world bounds.
-    game.world.setBounds(0, 0, 800, 600);
+    game.world.setBounds(0, 0, 1600, 1200);
+    game.camera.x = 400;
+    game.camera.y = 125;
+
+    marker = game.add.graphics();
+    marker.lineStyle(2, 0x000000, 1);
+    marker.drawRect(0, 0, 32, 32);
 
     this.load.image ('grass_tile', './assets/landscapeGrey.png', 132, 99);
     this.load.image ('building', './assets/building.png', 133, 127);
@@ -37,6 +44,8 @@ function preload ()
         // This is used to set a game canvas-based offset for the 0, 0, 0 isometric coordinate - by default
         // this point would be at screen coordinates 0, 0 (top left) which is usually undesirable.
         game.iso.anchor.setTo(0.5, 0.2);
+
+
 }
 
 function create ()
@@ -45,6 +54,7 @@ function create ()
 
   // Create a group for our tiles.
           isoGroup = game.add.group();
+
 
           // Let's make a load of tiles on a grid.
           var tile;
@@ -57,13 +67,36 @@ function create ()
               }
             }
 
-            var building = game.add.isoSprite(0, 0, 0, 'building', 0, isoGroup);
-            //building.scale.setTo(0.5, 0.5);
-            building.anchor.set(0.5, 0.5);
           // Provide a 3D position for the cursor
           cursorPos = new Phaser.Plugin.Isometric.Point3();
 
           cursors = game.input.keyboard.createCursorKeys();
+
+          let hasBuilding = false;
+          game.input.onDown.add(() => {
+            // Loop through all tiles and test to see if the 3D position from above intersects with the automatically generated IsoSprite tile bounds.
+            isoGroup.forEach(function (tile) {
+                var inBounds = tile.isoBounds.containsXY(cursorPos.x, cursorPos.y);
+                // If it does, do a little animation and tint change.
+                if (inBounds && !hasBuilding) {
+                    const building = game.add.isoSprite(cursorPos.x, cursorPos.y, 0, 'building', 0, isoGroup);
+                    building.anchor.set(0.5, 0.5);
+                    hasBuilding = true;
+
+                    tile.selected = true;
+                    tile.tint = 0x86bfda;
+                    game.add.tween(tile).to({ isoZ: 0 }, 200, Phaser.Easing.Quadratic.InOut, true);
+                }
+                // If not, revert back to how it was.
+                else if (tile.selected && !inBounds) {
+                    tile.selected = false;
+                    tile.tint = 0xffffff;
+                    game.add.tween(tile).to({ isoZ: 0 }, 200, Phaser.Easing.Quadratic.InOut, true);
+                }
+            });
+
+          });
+
 
 /*
   this.physics.startSystem(Phaser.Physics.ARCADE);
@@ -134,6 +167,13 @@ function create ()
   }
 
   function update() {
+    // Update the cursor position.
+        // It's important to understand that screen-to-isometric projection means you have to specify a z position manually, as this cannot be easily
+        // determined from the 2D pointer position without extra trickery. By default, the z position is 0 if not set.
+        game.iso.unproject(game.input.activePointer.position, cursorPos);
+
+    marker.x = game.input.activePointer.worldX;
+    marker.y = game.input.activePointer.worldY;
 
     if (cursors.left.isDown)
     {
@@ -153,26 +193,21 @@ function create ()
         game.camera.y+=camSpeed;
     }
 
-    // Update the cursor position.
-        // It's important to understand that screen-to-isometric projection means you have to specify a z position manually, as this cannot be easily
-        // determined from the 2D pointer position without extra trickery. By default, the z position is 0 if not set.
-        game.iso.unproject(game.input.activePointer.position, cursorPos);
+    isoGroup.forEach(function (tile) {
+        var inBounds = tile.isoBounds.containsXY(cursorPos.x, cursorPos.y);
+        // If it does, do a little animation and tint change.
+          if (!tile.selected && inBounds) {
+            tile.selected = true;
+            tile.tint = 0x86bfda;
+            game.add.tween(tile).to({ isoZ: 0 }, 200, Phaser.Easing.Quadratic.InOut, true);
+        }
+        // If not, revert back to how it was.
+        else if (tile.selected && !inBounds) {
+            tile.selected = false;
+            tile.tint = 0xffffff;
+            game.add.tween(tile).to({ isoZ: 0 }, 200, Phaser.Easing.Quadratic.InOut, true);
+        }
+    });
 
-        // Loop through all tiles and test to see if the 3D position from above intersects with the automatically generated IsoSprite tile bounds.
-        isoGroup.forEach(function (tile) {
-            var inBounds = tile.isoBounds.containsXY(cursorPos.x, cursorPos.y);
-            // If it does, do a little animation and tint change.
-            if (!tile.selected && inBounds) {
-                tile.selected = true;
-                tile.tint = 0x86bfda;
-                game.add.tween(tile).to({ isoZ: 0 }, 200, Phaser.Easing.Quadratic.InOut, true);
-            }
-            // If not, revert back to how it was.
-            else if (tile.selected && !inBounds) {
-                tile.selected = false;
-                tile.tint = 0xffffff;
-                game.add.tween(tile).to({ isoZ: 0 }, 200, Phaser.Easing.Quadratic.InOut, true);
-            }
-        });
 
 }
