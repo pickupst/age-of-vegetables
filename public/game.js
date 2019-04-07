@@ -18,7 +18,7 @@ var camSpeed = 10;
 var marker;
 
 var scenes = { preload: preload, create: create , update: update}
-var game = new Phaser.Game(800, 600, Phaser.AUTO, 'age-of-vegetables', scenes);
+var game = new Phaser.Game(1600, 1200, Phaser.AUTO, 'age-of-vegetables', scenes);
 
 
 function preload ()
@@ -50,10 +50,11 @@ function preload ()
 
 function create ()
 {
-
+game.scale.fullScreenScaleMode = Phaser.ScaleManager.EXACT_FIT;
 
   // Create a group for our tiles.
           isoGroup = game.add.group();
+          buildingGroup = game.add.group();
 
 
           // Let's make a load of tiles on a grid.
@@ -72,16 +73,19 @@ function create ()
 
           cursors = game.input.keyboard.createCursorKeys();
 
-          let hasBuilding = false;
+
           game.input.onDown.add(() => {
+              game.scale.startFullScreen(false);
             // Loop through all tiles and test to see if the 3D position from above intersects with the automatically generated IsoSprite tile bounds.
             isoGroup.forEach(function (tile) {
                 var inBounds = tile.isoBounds.containsXY(cursorPos.x, cursorPos.y);
                 // If it does, do a little animation and tint change.
-                if (inBounds && !hasBuilding) {
-                    const building = game.add.isoSprite(cursorPos.x, cursorPos.y, 0, 'building', 0, isoGroup);
-                    building.anchor.set(0.5, 0.5);
-                    hasBuilding = true;
+                if (inBounds && !tile.hasBuilding) {
+                    const building = game.add.isoSprite(tile.isoBounds.x, tile.isoBounds.y, 0, 'building', 0, buildingGroup);
+                    building.anchor.set(0.5, 0.25);
+                    //building.scale.setTo(0.5, 0.5);
+
+                    tile.hasBuilding = true;
 
                     tile.selected = true;
                     tile.tint = 0x86bfda;
@@ -93,8 +97,9 @@ function create ()
                     tile.tint = 0xffffff;
                     game.add.tween(tile).to({ isoZ: 0 }, 200, Phaser.Easing.Quadratic.InOut, true);
                 }
-            });
 
+                game.iso.simpleSort(buildingGroup);
+            });
           });
 
 
@@ -164,9 +169,12 @@ function create ()
 */
   this.add.image (0, 0, 'building');
 
+
+
   }
 
   function update() {
+
     // Update the cursor position.
         // It's important to understand that screen-to-isometric projection means you have to specify a z position manually, as this cannot be easily
         // determined from the 2D pointer position without extra trickery. By default, the z position is 0 if not set.
